@@ -255,11 +255,11 @@ register(
     max_episode_steps=1000,
 )
 
-# register(
-# 	id='AtlasBulletEnv-v0',
-# 	entry_point='bullet_envs.gym_locomotion_envs:AtlasBulletEnv',
-# 	max_episode_steps=1000
-# 	)
+register(
+	id='AtlasBulletEnv-v0',
+	entry_point='bullet_envs.gym_locomotion_envs:AtlasBulletEnv',
+	max_episode_steps=1000
+	)
 
 
 def getList():
