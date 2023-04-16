@@ -7,6 +7,9 @@ import math
 import sys
 import matplotlib.pyplot as plt
 import pathlib
+from time import sleep
+
+
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 
@@ -95,12 +98,12 @@ if __name__ == "__main__":
 		print("found path!!")
 
 		# Draw final path
-		if show_animation:
-			rrt_star.draw_graph()
-			plt.plot([x for (x, y) in path], [y for (x, y) in path], 'r--')
-			plt.grid(True)
-			plt.show()
-
+		# if show_animation:
+		# 	rrt_star.draw_graph()
+		# 	plt.plot([x for (x, y) in path], [y for (x, y) in path], 'r--')
+		# 	plt.grid(True)
+		# 	plt.show()
+	sleep(2.5)
 	exit(0)
 
 	## Turtle Bot ##
