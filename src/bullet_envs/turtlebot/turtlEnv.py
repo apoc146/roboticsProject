@@ -48,11 +48,11 @@ class TurtlebotEnv(gym.Env):
         self.walls = None
 
         self._cam_roll = 0
-        self.collision_margin = 0.25
+        self.collision_margin = 0.01
         self.wallLimit = self.collision_margin + robot_diameter / 2
         self._min_x, self._max_x = 0., 1.50 * 4
         self._min_y, self._max_y = 0., 1.50 * 3
-        self.posMultiplier = 4 * (1.50 * 3 - self.wallLimit) / 64
+        self.posMultiplier = 1#4 * (1.50 * 3 - self.wallLimit) / 64
 
         self._cam_pos = [3., 6.25, 3.3]
         self._cam_dist = 2

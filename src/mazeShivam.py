@@ -9,7 +9,7 @@ import sys
 import matplotlib.pyplot as plt
 import pathlib
 from time import sleep
-
+import pdb
 
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
@@ -25,75 +25,37 @@ canvasSize=35
 class rrtStar(RRT):
 	pass
 	
+def steps(source, dest):
+
+	DISCRETIZATION_STEP=1
+	dists = np.zeros(2, dtype=np.float32)
+	for j in range(0,2):
+		# print("\ndest state",dest.state)
+		dists[j] = dest[j] - source[j]
+
+	distTotal = magnitude(dists)
+	print(distTotal)
+	curr = source
+	path_steps = []
+	if distTotal>0:
+		incrementTotal = distTotal/DISCRETIZATION_STEP
+		for j in range(0,2):
+			dists[j] =dists[j]/incrementTotal
+
+		numSegments = int(math.floor(incrementTotal))+1
+
+		for i in range(0,numSegments):
+			curr[0]=curr[0]+dists[0]
+			curr[1]=curr[1]+dists[1]
+			#print(curr)
+			path_steps.append(list(curr))
+		#pdb.set_trace()
+	return path_steps
 
 
 if __name__ == "__main__":
 	
 	print("Start " + __file__)
-	
-
-	parser = argparse.ArgumentParser(description='CS 593-ROB - Assignment 1')
-	parser.add_argument('-g', '--geom', default='circle', choices=['point', 'circle', 'rectangle'], \
-		help='the geometry of the robot. Choose from "point" (Question 1), "circle" (Question 2), or "rectangle" (Question 3). default: "point"')
-	parser.add_argument('--alg', default='rrtstar', choices=['rrt', 'rrtstar'], \
-		help='which path-finding algorithm to use. default: "rrt"')
-	parser.add_argument('--iter', default=150, type=int, help='number of iterations to run')
-	parser.add_argument('--blind', action='store_true', help='set to disable all graphs. Useful for running in a headless session')
-	parser.add_argument('--fast', action='store_true', help='set to disable live animation. (the final results will still be shown in a graph). Useful for doing timing analysis')
-
-	show_animation=True
-
-	args = parser.parse_args()
-
-	show_animation = not args.blind and not args.fast
-
-	print("Starting planning algorithm '%s' with '%s' robot geometry"%(args.alg, args.geom))
-	starttime = time.time()
-
-
-	obstacleList = [
-	##maze start
-	(-30,20, 70, 2.0),
-	(40,20, 2.0, -40.0),
-	(40,-20, -70, -2.0),
-	(-30,-20, 2, 15.0),
-	(-30,-20+15, 25, 2.0),
-	(-30+25,-20+15, 2, 10),
-	(-30,-20+15+10, 25, -2.0),
-	(-30,-20+15+10, 2, 15.0),
-	## maze end
-	
-	## block
-	(5,-5, 5.0, 5.0),
-	]
-
-	start = [-10, -17]
-	goal = [-20, 10]
-	dof=2
-	if(args.geom == "rectangle" and dof!=3):
-		print("\n\t-*-*-*-*-*-*- Rectangle Body Should have DOF=3 -> X,Y,Theta. Please Correct -*-*-*-*-*-*-\n\n")
-		print("\t-*-*-*-*-*-*- Setting DOF to 3 -*-*-*-*-*-*-\n\n")
-		dof=3
-		
-	print()
-
-	rrt = RRT(start=start, goal=goal, randArea=[-canvasSize, canvasSize], obstacleList=obstacleList, dof=dof, alg=args.alg, geom=args.geom, maxIter=args.iter)
-	path = rrt.planning(animation=show_animation)
-
-	endtime = time.time()
-
-	if path is None:
-		print("FAILED to find a path in %.2fsec"%(endtime - starttime))
-	else:
-		print("SUCCESS - found path of cost %.5f in %.2fsec"%(RRT.get_path_len(path), endtime - starttime))
-	# Draw final path
-	if not args.blind:
-		rrt.draw_graph()
-		plt.show()
-
-
-
-	exit(0)
 	## Turtle Bot ##
 
 	'''
@@ -116,21 +78,46 @@ if __name__ == "__main__":
 	actionRepeat = 1
 	maxSteps = 100
 	"OpenAI Gym env creation"
-	env = gym.make(env_name, renders=True, wallDistractor=True, maxSteps=maxSteps, image_size=64, display_target=True)
-
+	env = gym.make(env_name, renders=True, wallDistractor=True, randomExplor=False, maxSteps=maxSteps, image_size=64, target_pos = (52.5,37.5),display_target=True)
+	unit = 15
+	obstacleList = [
+	(0, 0,60,1), #left
+	(0, 45, 60,1 ), #right
+	(0.,0, 1,45), #top
+	(15, 15, 45,1), #inleft
+	(15, 30, 45,1), #inright
+	(15, 15 , -1, 15), #bottom
+	(60, 0, 1, 15), #bottom left
+	( 60 ,30, -1, 15) #bottom right
+	]
 	"running env on 2 episodes"
-	num_ep = 2
+	start = [unit / 2+ 3*unit, unit/2]
+	goal = [unit/2 + 3*unit, unit*5/2]
+	num_ep = 1
+	# rrt = RRT(start=start, goal=goal, randArea=[-canvasSize, canvasSize], obstacleList=obstacleList, dof=2, alg='rrtstar', geom='circle', maxIter=150)
+	# path = rrt.planning(animation=True)
+	# print('path',path)
+	
+	#path = [[52.5, 37.5], [28.756069441690805, 32.54737375510372], [14.838668738838471, 34.33536660701179], [11.220208816830862, 27.78248341420185], [9.334475311924216, 13.806401047017424], [21.21246209853887, 11.377836748374946], [33.600806395693695, 7.997243693299808], [52.5, 7.5]]
+	#path = [start,[unit / 2+ 3*unit+0.5, unit/2] ,[unit / 2+ 3*unit+1, unit/2],[unit / 2+ 3*unit+2, unit/2], [unit / 2+ 3*unit+3, unit/2],[unit / 2+ 3*unit+4, unit/2]]
+	#path =[ [52.5,37.5], [7.5,37.5],[7.5,7.5],[52.5,7.5]]
+	path = [[52.5, 37.5], [52.5, 37.5], [24.967109703537268, 35.713450804697914], [13.845633903763023, 35.8498902925696], [10.047764378458083, 34.374293364086924], [10.517495502554034, 7.824296555485333], [52.5, 7.5]]
 	for episode in range(num_ep):
 		obs_space = env.observation_space
 		action_space = env.action_space
-
+		
 		obs = env.reset()
 		done = False
-		while not done:
-			# follow a random policy
-			action = env.action_space.sample()
-			print(action)
-			obs, reward, done, info = env.step(action)
-			print(obs)
-			"get the image observation from the camera"
-			obs = env.render(mode = "human")
+		
+		for i in range(1,len(path)):
+		# follow a random policy
+			#action = #np.array([0.5,   1-(ct/10)])#action_space.sample()
+			#print(action)
+			path_steps = steps(path[i-1],path[i])
+			print('lentgh of path steps',path_steps)
+			for j in range(1,len(path_steps)):
+				obs, reward, done, info = env.step((np.array(path_steps[j])-np.array(path_steps[j-1]))/10)
+				#print(obs)
+				"get the image observation from the camera"
+				sleep(0.5)
+				obs = env.render(mode = "human")

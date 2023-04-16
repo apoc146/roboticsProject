@@ -19,9 +19,9 @@ from shapely.geometry.polygon import Polygon
 
 ## --- PARAMS --- ##
 #Q5 global radius 1
-radius=1
-canvasSize=35
-mazePolygon=[(-30,20),(40,20),(40,-20),(-30,-20),(-30,-20+15),(-30+25,-20+15),(-30,-20+15+10),(-30,-20+15+10)]
+radius=2.5
+canvasSize=100
+mazePolygon=[(0,0),(0,45),(60,45),(60,30),(15,30),(15,15),(60,15),(60,0)]
 
 ##Q6 global params
 rectRoboLength=1.5
@@ -69,7 +69,7 @@ class RRT():
 	Class for RRT Planning
 	"""
 
-	def __init__(self, start, goal, obstacleList, randArea, alg, geom, dof=2, expandDis=0.05, goalSampleRate=5, maxIter=100):
+	def __init__(self, start, goal, obstacleList, randArea, alg, geom, dof=2, expandDis=0.1, goalSampleRate=5, maxIter=100):
 		"""
 		Sets algorithm parameters
 
@@ -608,7 +608,8 @@ class RRT():
 
 		You will need to modify this for question 2 (if self.geom == 'circle') and question 3 (if self.geom == 'rectangle')
 		"""
-
+		if not isPointInside((node.state[0],node.state[1]),mazePolygon):
+			return False
 		### For rectangle-Returns If collision 
 		if(self.geom=="rectangle"):
 			for (ox, oy, sizex,sizey) in self.obstacleList:
