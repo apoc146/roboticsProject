@@ -97,6 +97,14 @@ class TurtlebotEnv(gym.Env):
         self.turtle = None
         self.target_uid = None
         self.ownsPhysicsClient = False
+        self.steering_joints = [0, 2]
+        # Joint speed
+        self.joint_speed = 0
+        # Drag constants
+        self.c_rolling = 0.2
+        self.c_drag = 0.01
+        # Throttle constant increases "speed" of the car
+        self.c_throttle = 20
         self.reset()
         # Spaces
         observationDim = len(self.getExtendedObservation())
@@ -155,7 +163,41 @@ class TurtlebotEnv(gym.Env):
             if self.physicsClientId >= 0:
                 self._p.disconnect()
         self.physicsClientId = -1
+    def apply_action(self, action):
+        # Expects action to be two dimensional
+        throttle, steering_angle = action
 
+        # Clip throttle and steering angle to reasonable values
+        throttle = min(max(throttle, 0), 1)
+        steering_angle = max(min(steering_angle, 0.6), -0.6)
+
+        # Set the steering joint positions
+        self._p.setJointMotorControlArray(self.turtle, self.steering_joints,
+                                    controlMode=self._p.POSITION_CONTROL,
+                                    targetPositions=[steering_angle] * 2,
+                                    physicsClientId=self.physicsClientId)
+
+        # Calculate drag / mechanical resistance ourselves
+        # Using velocity control, as torque control requires precise models
+        friction = -self.joint_speed * (self.joint_speed * self.c_drag +
+                                        self.c_rolling)
+        acceleration = self.c_throttle * throttle + friction
+        # Each time step is 1/240 of a second
+        self.joint_speed = self.joint_speed + 1/30 * acceleration
+        self.joint_speed = min(max(self.joint_speed, 0), 10)
+        print(self.joint_speed)
+
+        # Set the velocity of the wheel joints directly
+        # self._p.setJointMotorControlArray(
+        #     bodyUniqueId=self.turtle,
+        #     jointIndices=self.drive_joints,
+        #     controlMode=self._p.VELOCITY_CONTROL,
+        #     targetVelocities=[self.joint_speed] * 4,
+        #     forces=[1.2] * 4,
+        #     physicsClientId=self.client)
+        self.leftWheelVelocity = self.joint_speed
+        self.rightWheelVelocity = self.joint_speed
+        
     def render(self, mode='rgb_array', image_size=None, color=None, close=False, camera_id=0,fpv=None, downscaling=True):
 
         if mode == "human":
@@ -495,15 +537,16 @@ class TurtlebotEnv(gym.Env):
                     break
         return has_bumped
 
-    def step(self, action_):
+    def step(self, action_,target):
 
         if self.wallDistractor:
             c = list(np.array([np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255), 255]) / 255.)
             self._p.changeVisualShape(self.walls[-1], -1, rgbaColor=c)
         self.has_bumped = False
 
-        assert np.abs(action_[0]) <= 1, 'action above bounds'
-        assert np.abs(action_[1]) <= 1, 'action above bounds'
+        #assert np.abs(action_[0]) <= 1, 'action above bounds'
+        #assert np.abs(action_[1]) <= 1, 'action above bounds'
+        self.apply_action((1,0))
         if False in (action_ == np.zeros((2))):
             self.theta = np.arctan2(action_[1], action_[0])
         else:
@@ -512,7 +555,10 @@ class TurtlebotEnv(gym.Env):
             self.envStepCounter += 1
 
             self.previous_pos = self.robot_pos.copy()
-            self.robot_pos[:2] += action_ * self.posMultiplier
+            update_distance = [self.leftWheelVelocity*np.cos(self.theta)*self.timeStep, self.rightWheelVelocity*np.sin(self.theta)*self.timeStep]
+            if np.linalg.norm((target - self.robot_pos[:2])) > 0.1:
+                print(np.linalg.norm((target - self.robot_pos[:2])))
+                self.robot_pos[:2] += update_distance
             # Handle collisions
             self.has_bumped = self.detect_collision(self.robot_pos)
             if self.has_bumped:
@@ -523,7 +569,7 @@ class TurtlebotEnv(gym.Env):
 
             if self.renders:
                 time.sleep(self.timeStep)
-
+        self._p.stepSimulation()
         self._observation = self.getExtendedObservation()
         reward = self._reward() - int(self.has_bumped)
         done = self._termination()
