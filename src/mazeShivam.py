@@ -34,7 +34,7 @@ def steps(source, dest):
 		dists[j] = dest[j] - source[j]
 
 	distTotal = magnitude(dists)
-	print(distTotal)
+	#print(distTotal)
 	curr = source
 	path_steps = []
 	if distTotal>0:
@@ -116,7 +116,7 @@ if __name__ == "__main__":
 			path_steps = steps(path[i-1],path[i])
 			#print('lentgh of path steps',path_steps)
 			for j in range(1,len(path_steps)):
-				obs, reward, done, info = env.step((np.array(path_steps[j])-np.array(path_steps[j-1]))/10,np.array(path_steps[j])/10)
+				obs, reward, done, info = env.bot_step((np.array(path_steps[j])-np.array(path_steps[j-1]))/10,np.array(path_steps[j])/10)
 				#print(obs)
 				"get the image observation from the camera"
 				sleep(0.5)

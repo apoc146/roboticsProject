@@ -199,7 +199,7 @@ class TurtlebotEnv(gym.Env):
         self.rightWheelVelocity = self.joint_speed
         
     def render(self, mode='rgb_array', image_size=None, color=None, close=False, camera_id=0,fpv=None, downscaling=True):
-
+        
         if mode == "human":
             return np.array([])
         if downscaling:
@@ -261,6 +261,7 @@ class TurtlebotEnv(gym.Env):
             (_, _, px1, _, _) = self._p.getCameraImage(
                 width=VP_W, height=VP_H, viewMatrix=view_matrix,
                 projectionMatrix=proj_matrix, renderer=self.renderer)
+        
 
         rgb_array = np.array(px1)[:, :, :3].astype(np.float32)
 
@@ -537,7 +538,7 @@ class TurtlebotEnv(gym.Env):
                     break
         return has_bumped
 
-    def step(self, action_,target):
+    def bot_step(self, action_,target):
 
         if self.wallDistractor:
             c = list(np.array([np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255), 255]) / 255.)
@@ -569,6 +570,15 @@ class TurtlebotEnv(gym.Env):
 
             if self.renders:
                 time.sleep(self.timeStep)
+            future_robot_pos = self.bump_detection(np.hstack([np.cos(self.theta), np.sin(self.theta)]), bump=False)
+            delta = (future_robot_pos - self.robot_pos[:2]) / 1
+            cameraEye= []
+            cameraTarget = []
+            cameraEye.append([self.robot_pos[0] + delta[0], self.robot_pos[1] + delta[1], 0.13])
+            cameraTarget.append([future_robot_pos[0] + delta[0], future_robot_pos[1] + delta[1], 0.12])
+            #import pdb; pdb.set_trace()
+            lidar_info = self._p.rayTestBatch(cameraEye,cameraTarget, parentObjectUniqueId=self.turtle )
+            print('lidar:',lidar_info)
         self._p.stepSimulation()
         self._observation = self.getExtendedObservation()
         reward = self._reward() - int(self.has_bumped)
