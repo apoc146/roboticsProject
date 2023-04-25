@@ -69,7 +69,7 @@ class TurtlebotEnv(gym.Env):
                 self.target_pos = np.hstack([self.target_pos, 0])
             else:
                 self.target_pos = np.hstack(self.target_pos)
-            print('target_pos {}'.format(target_pos))
+            # print('target_pos {}'.format(target_pos))
 
         # Camera
         self.renders = renders
@@ -185,7 +185,7 @@ class TurtlebotEnv(gym.Env):
         # Each time step is 1/240 of a second
         self.joint_speed = self.joint_speed + 1/30 * acceleration
         self.joint_speed = min(max(self.joint_speed, 0), 10)
-        print(self.joint_speed)
+        # print(self.joint_speed)
 
         # Set the velocity of the wheel joints directly
         # self._p.setJointMotorControlArray(
@@ -558,7 +558,7 @@ class TurtlebotEnv(gym.Env):
             self.previous_pos = self.robot_pos.copy()
             update_distance = [self.leftWheelVelocity*np.cos(self.theta)*self.timeStep, self.rightWheelVelocity*np.sin(self.theta)*self.timeStep]
             if np.linalg.norm((target - self.robot_pos[:2])) > 0.1:
-                print(np.linalg.norm((target - self.robot_pos[:2])))
+                # print(np.linalg.norm((target - self.robot_pos[:2])))
                 self.robot_pos[:2] += update_distance
             # Handle collisions
             self.has_bumped = self.detect_collision(self.robot_pos)
@@ -578,7 +578,7 @@ class TurtlebotEnv(gym.Env):
             cameraTarget.append([future_robot_pos[0] + delta[0], future_robot_pos[1] + delta[1], 0.12])
             #import pdb; pdb.set_trace()
             lidar_info = self._p.rayTestBatch(cameraEye,cameraTarget, parentObjectUniqueId=self.turtle )
-            print('lidar:',lidar_info)
+            print('LIDAR :\n\n',lidar_info)
         self._p.stepSimulation()
         self._observation = self.getExtendedObservation()
         reward = self._reward() - int(self.has_bumped)

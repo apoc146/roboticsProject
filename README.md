@@ -7,3 +7,7 @@ RRT*-guided robot learning for planning
 
 https://www.turtlebot.com/turtlebot3/
 
+## Instructions
+- Run by : python3 maze.py
+- Conda Env : condaEnv.txt
+
