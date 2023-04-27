@@ -109,49 +109,55 @@ class RRT():
 
 		self.nodeList = [self.start]
 		for i in range(self.maxIter):
-			rnd = self.generatesample()
-			while(isPointInside((rnd.state[0],rnd.state[1]),mazePolygon)==False):
-				rnd=self.generatesample()
+			path = self.get_path_to_goal()
+			if not path:
+				rnd = self.generatesample()
+				while(isPointInside((rnd.state[0],rnd.state[1]),mazePolygon)==False):
+					rnd=self.generatesample()
 
-			nind = self.GetNearestListIndex(self.nodeList, rnd)
-			rnd_valid, rnd_cost = self.steerTo(rnd, self.nodeList[nind])
+				nind = self.GetNearestListIndex(self.nodeList, rnd)
+				rnd_valid, rnd_cost = self.steerTo(rnd, self.nodeList[nind])
 
 
-			if (rnd_valid):
-				newNode = copy.deepcopy(rnd)
-				newNode.parent = nind
-				newNode.cost = rnd_cost + self.nodeList[nind].cost
+				if (rnd_valid):
+					newNode = copy.deepcopy(rnd)
+					newNode.parent = nind
+					newNode.cost = rnd_cost + self.nodeList[nind].cost
 
-				if self.alg == 'rrtstar':
-					nearinds = self.find_near_nodes(newNode) # you'll implement this method
-					# print("\nabc")
-					# print(len(nearinds))
-					# print("\ndef")
-					newParent = self.choose_parent(newNode, nearinds) # you'll implement this method
-				else:
-					newParent = None
+					if self.alg == 'rrtstar':
+						nearinds = self.find_near_nodes(newNode) # you'll implement this method
+						# print("\nabc")
+						# print(len(nearinds))
+						# print("\ndef")
+						newParent = self.choose_parent(newNode, nearinds) # you'll implement this method
+					else:
+						newParent = None
 
-				# insert newNode into the tree
-				if newParent is not None:
-					newNode.parent = newParent
-					newNode.cost = dist(newNode.state, self.nodeList[newParent].state) + self.nodeList[newParent].cost
-				else:
-					pass # nind is already set as newNode's parent
-				self.nodeList.append(newNode)
-				newNodeIndex = len(self.nodeList) - 1
-				self.nodeList[newNode.parent].children.add(newNodeIndex)
+					# insert newNode into the tree
+					if newParent is not None:
+						newNode.parent = newParent
+						newNode.cost = dist(newNode.state, self.nodeList[newParent].state) + self.nodeList[newParent].cost
+					else:
+						pass # nind is already set as newNode's parent
+					self.nodeList.append(newNode)
+					newNodeIndex = len(self.nodeList) - 1
+					self.nodeList[newNode.parent].children.add(newNodeIndex)
 
-				if self.alg == 'rrtstar':
-					self.rewire(newNode, newNodeIndex, nearinds) # you'll implement this method
+					if self.alg == 'rrtstar':
+						self.rewire(newNode, newNodeIndex, nearinds) # you'll implement this method
 
-				if self.is_near_goal(newNode):
-					self.solutionSet.add(newNodeIndex)
-					self.goalfound = True
+					if self.is_near_goal(newNode):
+						self.solutionSet.add(newNodeIndex)
+						self.goalfound = True
 
-				if animation:
-					self.draw_graph(rnd.state)
+					if animation:
+						self.draw_graph(rnd.state)
+						time.sleep(0.5)
+			else:
+				break
+					
 
-		return self.get_path_to_goal()
+		return path
 
 
 		

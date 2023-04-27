@@ -53,7 +53,7 @@ class TurtlebotEnv(gym.Env):
         self._min_x, self._max_x = 0., 1.50 * 4
         self._min_y, self._max_y = 0., 1.50 * 3
         self.posMultiplier = 1#4 * (1.50 * 3 - self.wallLimit) / 64
-
+        self.action = (1,0)
         self._cam_pos = [3., 6.25, 3.3]
         self._cam_dist = 2
         self._cam_yaw = 180
@@ -105,6 +105,8 @@ class TurtlebotEnv(gym.Env):
         self.c_drag = 0.01
         # Throttle constant increases "speed" of the car
         self.c_throttle = 20
+        self.max_value = 0.0
+        self.previous_theta = 0.0
         self.reset()
         # Spaces
         observationDim = len(self.getExtendedObservation())
@@ -547,19 +549,25 @@ class TurtlebotEnv(gym.Env):
 
         #assert np.abs(action_[0]) <= 1, 'action above bounds'
         #assert np.abs(action_[1]) <= 1, 'action above bounds'
-        self.apply_action((1,0))
+        
         if False in (action_ == np.zeros((2))):
             self.theta = np.arctan2(action_[1], action_[0])
         else:
             self.theta = self.theta
         for i in range(self._actionRepeat):
             self.envStepCounter += 1
-
+            
             self.previous_pos = self.robot_pos.copy()
-            update_distance = [self.leftWheelVelocity*np.cos(self.theta)*self.timeStep, self.rightWheelVelocity*np.sin(self.theta)*self.timeStep]
-            if np.linalg.norm((target - self.robot_pos[:2])) > 0.1:
+            self.previous_theta = self.theta.copy()
+            value = np.linalg.norm((target - self.robot_pos[:2]))
+            self.max_value = max(value,self.max_value)
+            if value > 0.1:
+                self.action = (value/self.max_value,self.theta - self.previous_theta)
+                self.apply_action(self.action)
+                update_distance = [self.leftWheelVelocity*np.cos(self.theta)*self.timeStep, self.rightWheelVelocity*np.sin(self.theta)*self.timeStep]
                 # print(np.linalg.norm((target - self.robot_pos[:2])))
                 self.robot_pos[:2] += update_distance
+
             # Handle collisions
             self.has_bumped = self.detect_collision(self.robot_pos)
             if self.has_bumped:
@@ -578,13 +586,49 @@ class TurtlebotEnv(gym.Env):
             cameraTarget.append([future_robot_pos[0] + delta[0], future_robot_pos[1] + delta[1], 0.12])
             #import pdb; pdb.set_trace()
             lidar_info = self._p.rayTestBatch(cameraEye,cameraTarget, parentObjectUniqueId=self.turtle )
-            print('LIDAR :\n\n',lidar_info)
+            #print('LIDAR :\n\n',lidar_info)
         self._p.stepSimulation()
         self._observation = self.getExtendedObservation()
         reward = self._reward() - int(self.has_bumped)
         done = self._termination()
         self.info['has_bumped'] = self.has_bumped
+        return np.hstack(self._observation), reward, done, self.info, np.hstack(self.action)
+    
+    def step(self, action_):
+
+        if self.wallDistractor:
+            c = list(np.array([np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255), 255]) / 255.)
+            self._p.changeVisualShape(self.walls[-1], -1, rgbaColor=c)
+        self.has_bumped = False
+
+        assert np.abs(action_[0]) <= 1, 'action above bounds'
+        assert np.abs(action_[1]) <= 1, 'action above bounds'
+        if False in (action_ == np.zeros((2))):
+            self.theta = np.arctan2(action_[1], action_[0])
+        else:
+            self.theta = self.theta
+        for i in range(self._actionRepeat):
+            self.envStepCounter += 1
+
+            self.previous_pos = self.robot_pos.copy()
+            self.robot_pos[:2] += action_ * self.posMultiplier
+            # Handle collisions
+            self.has_bumped = self.detect_collision(self.robot_pos)
+            if self.has_bumped:
+                self.robot_pos = self.previous_pos
+
+            orientation = self._p.getQuaternionFromEuler([0, 0, self.theta])
+            self._p.resetBasePositionAndOrientation(self.turtle, self.robot_pos, orientation)
+
+            if self.renders:
+                time.sleep(self.timeStep)
+
+        self._observation = self.getExtendedObservation()
+        reward = self._reward() - int(self.has_bumped)
+        done = self._termination()
+        self.info['has_bumped'] = self.has_bumped
         return np.hstack(self._observation), reward, done, self.info
+
 
     def _termination(self):
         if self.terminated or self.envStepCounter >= self._maxSteps:
