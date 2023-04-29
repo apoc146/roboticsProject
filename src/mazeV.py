@@ -66,6 +66,34 @@ def steps(source, dest):
 	return path_steps
 
 
+def padData(transitions):
+	maxLen=len(transitions[0]['obs'])
+	##find max pad
+	maxLen=-1
+	for i in range(len(transitions)):
+		obsCount=len(transitions[i]['obs'])
+		if(obsCount>=maxLen):
+			maxLen=obsCount
+
+	for i in range(len(transitions)):
+		transitionObsCount = len(transitions[i]['obs'])
+		countPadsToAdd = maxLen - transitionObsCount
+		tempObs=transitions[i]['obs'].tolist()
+		tempacts=transitions[i]['acts'].tolist()
+		tempNextObs=transitions[i]['next_obs'].tolist()
+
+		## add pad
+		for _ in range(countPadsToAdd):
+			tempObs.append([0.0, 0.0, 0.0])
+			tempacts.append([0.0, 0.0])
+			tempNextObs.append([0.0, 0.0, 0.0])
+	
+		transitions[i]['obs']=np.array(tempObs)
+		transitions[i]['acts']=np.array(tempacts)
+		transitions[i]['next_obs']=np.array(tempNextObs)
+
+
+
 if __name__ == "__main__":
 	
 	print("Start " + __file__)
@@ -128,66 +156,75 @@ if __name__ == "__main__":
 	#path =[ [52.5,37.5], [7.5,37.5],[7.5,7.5],[52.5,7.5]]
 	transitions =[]
 	# path = [[52.5, 37.5], [52.5, 37.5], [24.967109703537268, 35.713450804697914], [13.845633903763023, 35.8498902925696], [10.047764378458083, 34.374293364086924], [10.517495502554034, 7.824296555485333], [52.5, 7.5]]
-	for episode in range(num_ep):
-		path = None
-		while path is None:
-			rrt = RRT(start=start, goal=goal, randArea=[-canvasSize, canvasSize], obstacleList=obstacleList, dof=2, alg='rrtstar', geom='circle', maxIter=150)
+	# for episode in range(num_ep):
+	# 	path = None
+	# 	while path is None:
+	# 		rrt = RRT(start=start, goal=goal, randArea=[-canvasSize, canvasSize], obstacleList=obstacleList, dof=2, alg='rrtstar', geom='circle', maxIter=150)
 
-			path = rrt.planning(animation=True)
+	# 		path = rrt.planning(animation=True)
 
-		#path =[[52.5,37.5], [7.5,37.5],[7.5,7.5],[52.5,7.5]]
-		#path = [[52.5, 37.5], [52.5, 37.5], [24.967109703537268, 35.713450804697914], [13.845633903763023, 35.8498902925696], [10.047764378458083, 34.374293364086924], [10.517495502554034, 7.824296555485333], [52.5, 7.5]]
+	# 	#path =[[52.5,37.5], [7.5,37.5],[7.5,7.5],[52.5,7.5]]
+	# 	#path = [[52.5, 37.5], [52.5, 37.5], [24.967109703537268, 35.713450804697914], [13.845633903763023, 35.8498902925696], [10.047764378458083, 34.374293364086924], [10.517495502554034, 7.824296555485333], [52.5, 7.5]]
 
-		print("**********************")
-		print('path',path)
-		print("**********************\n")
+	# 	print("**********************")
+	# 	print('path',path)
+	# 	print("**********************\n")
 
-		if(path==None):
-			print("Path Not Found")
-			sleep(2.5)
-			exit(0)
+	# 	if(path==None):
+	# 		print("Path Not Found")
+	# 		sleep(2.5)
+	# 		exit(0)
 		
-		obs = env.reset() 
-		done = False
-		observations = []
-		actions = []
-		rewards = []
-		infos = []
-		rng = np.random.default_rng(0)
-		prev_obser = [0.0,0.0,0.0]
-		for i in range(1,len(path)):
-			path_steps = steps(path[i-1],path[i])
+	# 	obs = env.reset() 
+	# 	done = False
+	# 	observations = []
+	# 	actions = []
+	# 	rewards = []
+	# 	infos = []
+	# 	rng = np.random.default_rng(0)
+	# 	prev_obser = [0.0,0.0,0.0]
+	# 	for i in range(1,len(path)):
+	# 		path_steps = steps(path[i-1],path[i])
 			
-			for j in range(1,len(path_steps)):
-				obser, reward, done, info, act = env.bot_step((np.array(path_steps[j])-np.array(path_steps[j-1]))/10,np.array(path_steps[j])/10)
-				#print(obs)
-				#"get the image observation from the camera"
-				sleep(0.1)
-				obs = env.render(mode = "human")
+	# 		for j in range(1,len(path_steps)):
+	# 			obser, reward, done, info, act = env.bot_step((np.array(path_steps[j])-np.array(path_steps[j-1]))/10,np.array(path_steps[j])/10)
+	# 			#print(obs)
+	# 			#"get the image observation from the camera"
+	# 			sleep(0.1)
+	# 			obs = env.render(mode = "human")
 
-				observations.append(obser)
-				actions.append(act)
-				rewards.append(reward)
-				infos.append(info)
-				next_observations = observations[1:]
-				next_observations.append(observations[-1])
-		transitions.append({'obs': np.array(observations, dtype=np.float32),
-								'acts': np.array(actions, dtype=np.float32), 
-								'infos': {}, 
-								'next_obs': np.array(next_observations, dtype=np.float32), 
-								'dones': False
-							})		
-	with open('transitions.txt', 'wb') as f:
-		pickle.dump(transitions,f)
-		
+	# 			observations.append(obser)
+	# 			actions.append(act)
+	# 			rewards.append(reward)
+	# 			infos.append(info)
+	# 			next_observations = observations[1:]
+	# 			next_observations.append(observations[-1])
+	# 	transitions.append({'obs': np.array(observations, dtype=np.float32),
+	# 							'acts': np.array(actions, dtype=np.float32), 
+	# 							'infos': {}, 
+	# 							'next_obs': np.array(next_observations, dtype=np.float32), 
+	# 							'dones': False
+	# 						})		
+	# with open('transitions.txt', 'wb') as f:
+	# 	pickle.dump(transitions,f)
+
+	with open('transitions.txt', 'rb') as f:
+		transitions=pickle.load(f)
+	
+	padData(transitions)
+	temp=transitions
+	print("batch size")
+	print(len(transitions[0]['obs']))
+	print("** Training Started **\n")
 	bc_trainer = bc.BC(
 						observation_space=env.observation_space,
 						action_space=env.action_space,
 						demonstrations=transitions,
-						rng=rng,
+						rng=np.random.default_rng(0),
 						batch_size = len(transitions[0]['obs']),
 					)
 	bc_trainer.train( n_epochs=10)
+	print("** Training Completed **\n")
 	
 	reward, _ = evaluate_policy(bc_trainer.policy, env, 10)
 	print("Reward:", reward)
