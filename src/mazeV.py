@@ -1,6 +1,7 @@
 import os
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
+import tempfile
 
 import gym
 # from utils.PythonRobotics.PathPlanning.RRTStar.rrt_star import RRTStar
@@ -16,11 +17,16 @@ from time import sleep
 import pdb
 import pickle
 # from stable_baselines3 import PPO
+from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.ppo import MlpPolicy
+
 # from stable_baselines3.common.vec_env import DummyVecEnv
 # from stable_baselines3.ppo import MlpPolicy
 
 from imitation.algorithms import bc
+from imitation.algorithms.dagger import SimpleDAggerTrainer
 # from imitation.data import rollout
 # from imitation.data.wrappers import RolloutInfoWrapper
 
@@ -84,9 +90,9 @@ def padData(transitions):
 
 		## add pad
 		for _ in range(countPadsToAdd):
-			tempObs.append([0.0, 0.0, 0.0])
-			tempacts.append([0.0, 0.0])
-			tempNextObs.append([0.0, 0.0, 0.0])
+			tempObs.append([-1.0, -1.0, -1.0])
+			tempacts.append([-1.0, -1.0])
+			tempNextObs.append([-1.0, -1.0, -1.0])
 	
 		transitions[i]['obs']=np.array(tempObs)
 		transitions[i]['acts']=np.array(tempacts)
@@ -136,6 +142,7 @@ if __name__ == "__main__":
 	maxSteps = 100
 	"OpenAI Gym env creation"
 	env = gym.make(env_name, renders=True, wallDistractor=True, randomExplor=False, maxSteps=maxSteps, image_size=64, target_pos = (52.5,37.5),display_target=True)
+	venv = DummyVecEnv([lambda:env])
 	unit = 15
 	obstacleList = [
 	(0, 0,60,1), #left
@@ -208,7 +215,7 @@ if __name__ == "__main__":
 	# with open('transitions.txt', 'wb') as f:
 	# 	pickle.dump(transitions,f)
 
-	with open('transitions.txt', 'rb') as f:
+	with open("C:\\Users\\17657\\Desktop\\CS59300_Robotics\\roboticsProject\\src\\transition.txt", 'rb') as f:
 		transitions=pickle.load(f)
 	
 	padData(transitions)
@@ -223,9 +230,31 @@ if __name__ == "__main__":
 						rng=np.random.default_rng(0),
 						batch_size = len(transitions[0]['obs']),
 					)
-	bc_trainer.train( n_epochs=10)
-	print("** Training Completed **\n")
-	
-	reward, _ = evaluate_policy(bc_trainer.policy, env, 10)
+	reward = 0.0
+	'''
+	for n in range(10):
+		bc_trainer.train( n_epochs = 1, rewards = reward)
+		print("** Training Completed **\n")
+		
+		reward, _ = evaluate_policy(bc_trainer.policy, env,	10,return_episode_rewards =True)
+		print("Reward:", reward)
+	'''
+	expert = PPO(policy=MlpPolicy, env=env)
+	expert.learn(10)
+	print('********************PPO complete')
+	rng = np.random.default_rng(0)
+
+	with tempfile.TemporaryDirectory(prefix="dagger_example_") as tmpdir:
+		print(tmpdir)
+		dagger_trainer = SimpleDAggerTrainer(
+			venv=venv,
+			scratch_dir=tmpdir,
+			expert_policy=expert,
+			bc_trainer=bc_trainer,
+			rng=rng,
+		)
+		dagger_trainer.train(2)
+
+	reward, _ = evaluate_policy(dagger_trainer.policy, env, 10)
 	print("Reward:", reward)
 

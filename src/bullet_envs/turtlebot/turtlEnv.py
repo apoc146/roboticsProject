@@ -20,7 +20,7 @@ class TurtlebotEnv(gym.Env):
                  actionRepeat=1, maxSteps=100,
                  image_size=64, color=True, fpv=False, randomExplor=True, noise_type='none',
                  with_velocity=False, with_ANGLES=False, seed=None,
-                 with_target=True, wallDistractor=False, random_target=False, target_pos=None, display_target=False,
+                 with_target=True, wallDistractor=False, random_target=False, target_pos=None, display_target=True,
                  debug=False):
 
         # Agent
@@ -113,6 +113,7 @@ class TurtlebotEnv(gym.Env):
         self.action_space = gym.spaces.Box(low=-1., high=1, shape=(2,), dtype=np.float32)
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(observationDim,),
                                                 dtype=np.float32)
+        self.lidar_info = ((0,0,0,(0,0,0),(0,0,0)),)
         "To have the same results among different resets"
         self.seed(seed)
 
@@ -420,11 +421,13 @@ class TurtlebotEnv(gym.Env):
                 if self.display_target:
                     self.target_uid = self._p.loadURDF(os.path.join(self.script_path, "urdf/cylinder.urdf"), self.target_pos,
                                                        useFixedBase=True)
+                    print("inisde urdf")
                 else:
                     self.target_uid = self._p.loadURDF(os.path.join(self.script_path, "urdf/cylinder_invisible.urdf"),
                                                        self.target_pos,
                                                        useFixedBase=True)
-            self._p.resetBasePositionAndOrientation(self.target_uid, self.target_pos, [0, 0, 0, 1])
+                    print("outside urdf")
+            self._p.resetBasePositionAndOrientation(self.target_uid, self.target_pos, [0, 0, 1, 1])
 
         "Add mobile robot and target"
         too_close = True
@@ -585,7 +588,7 @@ class TurtlebotEnv(gym.Env):
             cameraEye.append([self.robot_pos[0] + delta[0], self.robot_pos[1] + delta[1], 0.13])
             cameraTarget.append([future_robot_pos[0] + delta[0], future_robot_pos[1] + delta[1], 0.12])
             #import pdb; pdb.set_trace()
-            lidar_info = self._p.rayTestBatch(cameraEye,cameraTarget, parentObjectUniqueId=self.turtle )
+            self.lidar_info = self._p.rayTestBatch(cameraEye,cameraTarget, parentObjectUniqueId=self.turtle )
             #print('LIDAR :\n\n',lidar_info)
         self._p.stepSimulation()
         self._observation = self.getExtendedObservation()
@@ -609,9 +612,20 @@ class TurtlebotEnv(gym.Env):
             self.theta = self.theta
         for i in range(self._actionRepeat):
             self.envStepCounter += 1
-
+            
             self.previous_pos = self.robot_pos.copy()
-            self.robot_pos[:2] += action_ * self.posMultiplier
+            #self.previous_theta = self.theta.copy()
+            value = np.linalg.norm((action_ - self.robot_pos[:2]))
+            self.max_value = max(value,self.max_value)
+            if value > 0.1:
+                self.action = (value/self.max_value,self.theta)
+                self.apply_action(self.action)
+               
+                update_distance = [np.cos(self.theta)*self.timeStep*50, np.sin(self.theta)*self.timeStep*50]
+                print('UPDATE DISTANCE:', update_distance)
+                # print(np.linalg.norm((target - self.robot_pos[:2])))
+                self.robot_pos[:2] += update_distance
+
             # Handle collisions
             self.has_bumped = self.detect_collision(self.robot_pos)
             if self.has_bumped:
@@ -622,14 +636,81 @@ class TurtlebotEnv(gym.Env):
 
             if self.renders:
                 time.sleep(self.timeStep)
-
+            future_robot_pos = self.bump_detection(np.hstack([np.cos(self.theta), np.sin(self.theta)]), bump=False)
+            delta = (future_robot_pos - self.robot_pos[:2]) / 1
+            cameraEye= []
+            cameraTarget = []
+            cameraEye.append([self.robot_pos[0] + delta[0], self.robot_pos[1] + delta[1], 0.13])
+            cameraTarget.append([future_robot_pos[0] + delta[0], future_robot_pos[1] + delta[1], 0.12])
+            #import pdb; pdb.set_trace()
+            self.lidar_info = self._p.rayTestBatch(cameraEye,cameraTarget, parentObjectUniqueId=self.turtle )
+            #print('LIDAR :\n\n',lidar_info)
+        self._p.stepSimulation()
         self._observation = self.getExtendedObservation()
-        reward = self._reward() - int(self.has_bumped)
+        reward = self._reward() #- int(self.has_bumped)
         done = self._termination()
         self.info['has_bumped'] = self.has_bumped
         return np.hstack(self._observation), reward, done, self.info
 
+    '''
+    def step(self, action_):
 
+        if self.wallDistractor:
+            c = list(np.array([np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255), 255]) / 255.)
+            self._p.changeVisualShape(self.walls[-1], -1, rgbaColor=c)
+        self.has_bumped = False
+
+        #assert np.abs(action_[0]) <= 1, 'action above bounds'
+        #assert np.abs(action_[1]) <= 1, 'action above bounds'
+        
+        if False in (action_ == np.zeros((2))):
+            self.theta = action_[1]#np.arctan2(action_[1], action_[0])
+            print("Theta:", self.theta)
+        else:
+            self.theta = self.theta
+        for i in range(self._actionRepeat):
+            self.envStepCounter += 1
+            
+            self.previous_pos = self.robot_pos.copy()
+            #self.previous_theta = self.theta.copy()
+            value = np.linalg.norm((action_ - self.robot_pos[:2]))
+            self.max_value = max(value,self.max_value)
+            if value > 0.1:
+                self.action = (value/self.max_value,self.theta)
+                self.apply_action(self.action)
+               
+                update_distance = [np.cos(self.theta)*self.timeStep, np.sin(self.theta)*self.timeStep]
+                print('UPDATE DISTANCE:', update_distance)
+                # print(np.linalg.norm((target - self.robot_pos[:2])))
+                self.robot_pos[:2] += update_distance
+
+            # Handle collisions
+            self.has_bumped = self.detect_collision(self.robot_pos)
+            if self.has_bumped:
+                self.robot_pos = self.previous_pos
+
+            orientation = self._p.getQuaternionFromEuler([0, 0, self.theta])
+            self._p.resetBasePositionAndOrientation(self.turtle, self.robot_pos, orientation)
+
+            if self.renders:
+                time.sleep(self.timeStep)
+            future_robot_pos = self.bump_detection(np.hstack([np.cos(self.theta), np.sin(self.theta)]), bump=False)
+            delta = (future_robot_pos - self.robot_pos[:2]) / 1
+            cameraEye= []
+            cameraTarget = []
+            cameraEye.append([self.robot_pos[0] + delta[0], self.robot_pos[1] + delta[1], 0.13])
+            cameraTarget.append([future_robot_pos[0] + delta[0], future_robot_pos[1] + delta[1], 0.12])
+            #import pdb; pdb.set_trace()
+            self.lidar_info = self._p.rayTestBatch(cameraEye,cameraTarget, parentObjectUniqueId=self.turtle )
+            #print('LIDAR :\n\n',lidar_info)
+        self._p.stepSimulation()
+        self._observation = self.getExtendedObservation()
+        reward = self._reward() #- int(self.has_bumped)
+        done = self._termination()
+        self.info['has_bumped'] = self.has_bumped
+        return np.hstack(self._observation), reward, done, self.info
+
+    '''
     def _termination(self):
         if self.terminated or self.envStepCounter >= self._maxSteps:
             return True
@@ -645,7 +726,7 @@ class TurtlebotEnv(gym.Env):
     def _reward(self):
         # Distance to target
         if self.with_target:
-            reward = - (self.goal_distance(self.object, self.target) > self.target_radius).astype(np.float32)
+            reward = - (self.goal_distance(self.robot_pos[:2], self.target) > self.target_radius).astype(np.float32)
         else:
             reward = 0
         return reward
