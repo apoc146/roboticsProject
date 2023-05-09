@@ -69,7 +69,7 @@ class RRT():
 	Class for RRT Planning
 	"""
 
-	def __init__(self, start, goal, obstacleList, randArea, alg, geom, dof=2, expandDis=0.1, goalSampleRate=5, maxIter=100):
+	def __init__(self, start, goal, obstacleList, randArea, alg, geom, dof=2, expandDis=0.1, goalSampleRate=5, maxIter=500):
 		"""
 		Sets algorithm parameters
 
@@ -109,6 +109,7 @@ class RRT():
 
 		self.nodeList = [self.start]
 		for i in range(self.maxIter):
+		
 			path = self.get_path_to_goal()
 			if not path:
 				rnd = self.generatesample()
@@ -152,7 +153,7 @@ class RRT():
 
 					if animation:
 						self.draw_graph(rnd.state)
-						time.sleep(0.5)
+						time.sleep(5)
 			else:
 				break
 					

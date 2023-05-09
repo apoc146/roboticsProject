@@ -7,14 +7,31 @@ import gym
 from datetime import datetime
 from collections import OrderedDict
 from pybullet_data import getDataPath
-
+from time import sleep
 from bullet_envs.utils import seeding_np_random, AddNoise
 
 robot_diameter = 0.4
 
 initZ = 0.
+islidar = False
 
 
+def createBlock(p, pos=[0, 0, 0.5]):
+    # Define the block dimensions
+    blockSize=0.25
+    block_half_extents = [blockSize, blockSize, blockSize]
+
+    # Load the block shape
+    block_shape = p.createCollisionShape(p.GEOM_BOX, halfExtents=block_half_extents)
+
+    # Define the block's initial pose (position and orientation)
+    block_initial_pose = p.getQuaternionFromEuler([0, 0, 0]) # zero rotation
+    block_initial_position = pos # center of block at z=0.5
+
+    # Create the block object
+    block = p.createMultiBody(baseMass=1, baseCollisionShapeIndex=block_shape,
+                            basePosition=block_initial_position, baseOrientation=block_initial_pose)
+    
 class TurtlebotEnv(gym.Env):
     def __init__(self, urdf_root=getDataPath(), renders=False, distractor=False,
                  actionRepeat=1, maxSteps=100,
@@ -60,7 +77,7 @@ class TurtlebotEnv(gym.Env):
         self._cam_pitch = -45
 
 
-        self.speedMultiplier = 66
+        self.speedMultiplier = 6
         # Target
         self.target_pos = target_pos
         if target_pos is not None:
@@ -114,6 +131,7 @@ class TurtlebotEnv(gym.Env):
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(observationDim,),
                                                 dtype=np.float32)
         self.lidar_info = ((0,0,0,(0,0,0),(0,0,0)),)
+        self.reward = 0
         "To have the same results among different resets"
         self.seed(seed)
 
@@ -320,7 +338,79 @@ class TurtlebotEnv(gym.Env):
                                           numSolverIterations=self.numSolverIterations,
                                           numSubSteps=1)
         self._p.setGravity(0, 0, self.gravity)
+    
+    def createRFWalls(self):
+        "create ground"
+        self.ground = self._p.loadURDF(self._urdf_root + "plane.urdf")
+        white, yellow, green, blue, purple = list(np.array([247, 159, 45]) / 255.), list(
+            np.array([252, 207, 3, 255]) / 255.), list(
+            np.array([3, 252, 34, 255]) / 255.), list(np.array([3, 136, 252, 255]) / 255.), list(
+            np.array([157, 3, 252, 255]) / 255.)
+        # Add walls
+        # Path to the urdf file
+        unit = 1.50
+        createBlock(self._p,[1.5,3,0])
+        createBlock(self._p,[4.25,1.75,0])
+        # createBlock(self._p,[unit*0.3 , unit*0.5, 0])
 
+        if self.class_name == 'TurtlebotMazeEnv':
+
+            wallMaze1_urdf = os.path.join(self.script_path, "urdf/wallMaze1.urdf")
+            wallMaze2_urdf = os.path.join(self.script_path, "urdf/wallMaze2.urdf")
+            wallMaze3_urdf = os.path.join(self.script_path, "urdf/wallMaze3.urdf")
+            
+            
+            wall_left = self._p.loadURDF(wallMaze1_urdf, [unit * 4 / 2, 0, 0], useFixedBase=True,
+                                         flags=pybullet.URDF_USE_SELF_COLLISION)
+            self._p.changeVisualShape(wall_left, -1, rgbaColor=yellow)
+
+            wall_right = self._p.loadURDF(wallMaze1_urdf, [unit * 4 / 2, unit * 3, 0], useFixedBase=True,
+                                          flags=pybullet.URDF_USE_SELF_COLLISION)
+            self._p.changeVisualShape(wall_right, -1, rgbaColor=green)
+
+            
+
+            # top wall
+            wall_top = self._p.loadURDF(wallMaze2_urdf, [0., unit * 3 / 2, 0],
+                                        self._p.getQuaternionFromEuler([0, 0, np.pi / 2]), useFixedBase=True,
+                                        flags=pybullet.URDF_USE_SELF_COLLISION)
+            self._p.changeVisualShape(wall_top, -1, rgbaColor=white)
+
+            wall_inLeft = self._p.loadURDF(wallMaze3_urdf, [unit*1.5, unit, 0], useFixedBase=True,
+                                           flags=pybullet.URDF_USE_SELF_COLLISION)
+            self._p.changeVisualShape(wall_inLeft, -1, rgbaColor=purple)
+
+            wall_inRight = self._p.loadURDF(wallMaze3_urdf, [unit*3.5, 2 * unit, 0], useFixedBase=True,
+                                            flags=pybullet.URDF_USE_SELF_COLLISION)
+            self._p.changeVisualShape(wall_inRight, -1, rgbaColor=purple)
+
+            wall_inUpside = self._p.loadURDF(wallMaze3_urdf, [unit*2, 2 * unit, 0],self._p.getQuaternionFromEuler([0, 0, np.pi / 2]), useFixedBase=True,
+                                           flags=pybullet.URDF_USE_SELF_COLLISION)
+            self._p.changeVisualShape(wall_inUpside, -1, rgbaColor=purple)
+
+            
+            
+            
+
+            ## left center 
+            wall_bottom = self._p.loadURDF(wallMaze3_urdf, [unit*4, unit * 3 / 2, 0],
+                                           self._p.getQuaternionFromEuler([0, 0, np.pi / 2]), useFixedBase=True,
+                                           flags=pybullet.URDF_USE_SELF_COLLISION)
+            self._p.changeVisualShape(wall_bottom, -1, rgbaColor=blue)
+
+            wall_bottomLeft = self._p.loadURDF(wallMaze3_urdf, [unit * 4, unit / 2, 0],
+                                               self._p.getQuaternionFromEuler([0, 0, np.pi / 2]), useFixedBase=True,
+                                               flags=pybullet.URDF_USE_SELF_COLLISION)
+            self._p.changeVisualShape(wall_bottomLeft, -1, rgbaColor=blue)
+
+            wall_bottomRight = self._p.loadURDF(wallMaze3_urdf, [unit * 4, unit * 2 + unit / 2, 0],
+                                                self._p.getQuaternionFromEuler([0, 0, np.pi / 2]), useFixedBase=True,
+                                                flags=pybullet.URDF_USE_SELF_COLLISION)
+            self._p.changeVisualShape(wall_bottomRight, -1, rgbaColor=blue)
+
+            self.walls = [wall_left, wall_bottom, wall_right, wall_top, wall_inLeft, wall_inRight, wall_bottomLeft,
+                          wall_bottomRight, wall_inUpside]
+            
     def createWalls(self):
         "create ground"
         self.ground = self._p.loadURDF(self._urdf_root + "plane.urdf")
@@ -476,7 +566,8 @@ class TurtlebotEnv(gym.Env):
         self.has_bumped = False
 
         if self.walls is None:
-            self.createWalls()
+            #self.createWalls()
+            self.createRFWalls()
 
         self.resetRobot()
 
@@ -592,22 +683,25 @@ class TurtlebotEnv(gym.Env):
             #print('LIDAR :\n\n',lidar_info)
         self._p.stepSimulation()
         self._observation = self.getExtendedObservation()
+        if islidar:
+            self._observation = self.lidar_info
         reward = self._reward() - int(self.has_bumped)
         done = self._termination()
         self.info['has_bumped'] = self.has_bumped
         return np.hstack(self._observation), reward, done, self.info, np.hstack(self.action)
     
     def step(self, action_):
-
+        #print('*******************ACTIONS:', action_)
         if self.wallDistractor:
             c = list(np.array([np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255), 255]) / 255.)
             self._p.changeVisualShape(self.walls[-1], -1, rgbaColor=c)
         self.has_bumped = False
 
-        assert np.abs(action_[0]) <= 1, 'action above bounds'
-        assert np.abs(action_[1]) <= 1, 'action above bounds'
+        # assert np.abs(action_[0]) <= 1, 'action above bounds'
+        # assert np.abs(action_[1]) <= 1, 'action above bounds'
         if False in (action_ == np.zeros((2))):
             self.theta = np.arctan2(action_[1], action_[0])
+            #print('THETA:',self.theta)
         else:
             self.theta = self.theta
         for i in range(self._actionRepeat):
@@ -620,9 +714,11 @@ class TurtlebotEnv(gym.Env):
             if value > 0.1:
                 self.action = (value/self.max_value,self.theta)
                 self.apply_action(self.action)
-               
-                update_distance = [np.cos(self.theta)*self.timeStep*50, np.sin(self.theta)*self.timeStep*50]
-                print('UPDATE DISTANCE:', update_distance)
+                if self.reward !=0:
+                    update_distance = [np.cos(self.theta)*self.timeStep*50, np.sin(self.theta)*self.timeStep*50]
+                else:
+                    update_distance = [np.cos(self.theta)*self.timeStep*50, np.sin(self.theta)*self.timeStep*50]
+                #print('UPDATE DISTANCE:', update_distance)
                 # print(np.linalg.norm((target - self.robot_pos[:2])))
                 self.robot_pos[:2] += update_distance
 
@@ -647,10 +743,10 @@ class TurtlebotEnv(gym.Env):
             #print('LIDAR :\n\n',lidar_info)
         self._p.stepSimulation()
         self._observation = self.getExtendedObservation()
-        reward = self._reward() #- int(self.has_bumped)
+        self.reward = self._reward() #- int(self.has_bumped)
         done = self._termination()
         self.info['has_bumped'] = self.has_bumped
-        return np.hstack(self._observation), reward, done, self.info
+        return np.hstack(self._observation), self.reward, done, self.info
 
     '''
     def step(self, action_):
@@ -726,7 +822,14 @@ class TurtlebotEnv(gym.Env):
     def _reward(self):
         # Distance to target
         if self.with_target:
-            reward = - (self.goal_distance(self.robot_pos[:2], self.target) > self.target_radius).astype(np.float32)
+            reward = - (self.goal_distance(self.robot_pos[:2], self.target)).astype(np.float32)
+            #print(self._p.getBasePositionAndOrientation(self.turtle))
+            #print("REWARD:",reward)
+            if reward > -1:
+                reward = 10
+                print("GOAL REACHED! REWARD:",reward)
+                sleep(1)
+                
         else:
             reward = 0
         return reward
@@ -763,7 +866,7 @@ class TurtlebotEnv(gym.Env):
     @property
     def target(self):
         # Return only the [x, y] coordinates of the target
-        self._target = np.array(self._p.getBasePositionAndOrientation(self.target_uid)[0][:2])
+        self._target = np.array([5.25,0.75])#np.array(self._p.getBasePositionAndOrientation(self.target_uid)[0][:2])
         return self._target
 
     @property
