@@ -5,7 +5,7 @@ RRT*-guided robot learning for planning
 -       Run RRT* to gather data, including local lidar observations
 -       Implement an imitation learning policy to generate the next waypoint toward the goal using only the local lidar observations
 
-https://www.turtlebot.com/turtlebot3/
+You can find the results and documentation in the [REPORT](./CS593Report.pdf)
 
 ## Instructions
 - Run python3 mazeV.py for checkpoint 3 
